@@ -1,0 +1,251 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}</style><style>:root{color-scheme:light dark;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}}:root[data-theme="dark"]{color-scheme:dark;--md-bg:#0d0d0d;--md-text:rgba(255,255,255,.85);--md-muted:rgba(255,255,255,.6);--md-fill:rgba(255,255,255,.06);--md-fill-strong:rgba(255,255,255,.09);--md-rule:rgba(255,255,255,.14);--md-rule-strong:rgba(255,255,255,.22);--md-link:hsl(210 100% 72%)}:root[data-theme="light"]{color-scheme:light}@media print{:root,:root[data-theme="dark"]{color-scheme:light;--md-bg:#fff;--md-text:rgba(0,0,0,.8);--md-muted:rgba(0,0,0,.6);--md-fill:rgba(0,0,0,.04);--md-fill-strong:rgba(0,0,0,.06);--md-rule:rgba(0,0,0,.1);--md-rule-strong:rgba(0,0,0,.16);--md-link:hsl(210 100% 45%)}}body{background:var(--md-bg);color:var(--md-text);max-width:720px;margin:0 auto;padding:32px;display:flex;flex-direction:column;gap:10px;font:14px/1.55 -apple-system,BlinkMacSystemFont,'SF Pro','Segoe UI',sans-serif;overflow-wrap:break-word}body>:first-child{margin-top:0}h1,h2,h3,h4,h5,h6{margin:6px 0 0;line-height:1.25;font-weight:600;text-wrap:balance}h1{font-size:1.35em}h2{font-size:1.15em;color:var(--md-muted)}h3,h4,h5,h6{font-size:1em}p,ul,ol,blockquote,table,pre,hr{margin:0}strong{font-weight:600}a{color:var(--md-link);text-decoration:none}a:hover{text-decoration:underline}ul,ol{display:flex;flex-direction:column;gap:6px;padding-left:22px}ul{list-style:disc}ol{list-style:decimal}:is(li,td,th)>*+:is(p,ul,ol,blockquote){margin-top:6px}blockquote{display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--md-rule);padding-left:10px;color:var(--md-muted)}:not(pre)>code{background:var(--md-fill);padding:1px 3px;border-radius:4px;font:.92em 'SF Mono',ui-monospace,Menlo,Consolas,monospace}a>code{background:none;color:inherit}pre{background:var(--md-fill);padding:10px 12px;border-radius:6px;overflow-x:auto;font:12px/1.5 'SF Mono',ui-monospace,Menlo,Consolas,monospace;margin-block:4px}pre code{background:none;padding:0;font:inherit}table{width:100%;border-collapse:separate;border-spacing:2px;font:inherit}th,td{padding:6px 8px;border-radius:3px;text-align:left;vertical-align:top}th{background:var(--md-fill-strong);font-weight:600}td{background:var(--md-fill)}:is(th,td) :not(pre)>code{background:transparent}hr{border:0;border-top:1px solid var(--md-rule-strong);margin-block:10px}img{max-width:100%;height:auto;border-radius:4px}</style>
+</head><body>
+<h1>Local GPT: Offline Chat Assistant for Our Organization</h1>
+<p><strong>Stack:</strong> Streamlit (web interface) + Ollama (local model server)
+<strong>File:</strong> <code>app.py</code>
+<strong>Connectivity:</strong> None required after setup. All processing stays on our own hardware.</p>
+<hr>
+<h2>1. Overview</h2>
+<p>Local GPT is a ChatGPT-style web application that runs entirely inside our network. Staff open it in a browser, pick a model, and chat. Prompts, documents and answers never leave the organization, because the app only talks to an Ollama server running on a machine we control.</p>
+<p><strong>Why it exists</strong></p>
+<ul>
+<li>Keep sensitive internal text and files off third-party cloud services.</li>
+<li>Work without internet access.</li>
+<li>No per-user or per-token fees. Cost is limited to our own hardware.</li>
+<li>Full control over which models are offered and how they behave.</li>
+</ul>
+<hr>
+<h2>2. Architecture</h2>
+<pre><code>Staff browser  ---&gt;  Streamlit app (app.py)  ---&gt;  Ollama server  ---&gt;  Local model files
+ (LAN)               port 8501                     port 11434          (~/.ollama/models)
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Browser</td>
+<td>Chat interface. Needs only network access to the app server.</td>
+</tr>
+<tr>
+<td>Streamlit</td>
+<td>Renders the UI, manages sessions, builds prompts, streams replies.</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>Loads models and generates text through its <code>/api/chat</code> endpoint.</td>
+</tr>
+<tr>
+<td><code>chat_history/</code></td>
+<td>Local JSON files, one per user, holding saved conversations.</td>
+</tr>
+</tbody>
+</table>
+<p>The app calls two Ollama endpoints: <code>GET /api/tags</code> (list installed models) and <code>POST /api/chat</code> (streamed generation).</p>
+<hr>
+<h2>3. Features</h2>
+<ul>
+<li><strong>Streaming replies</strong> as the model generates them.</li>
+<li><strong>Model picker</strong> populated automatically from installed Ollama models.</li>
+<li><strong>Adjustable settings:</strong> system prompt, temperature, context window (2K to 32K tokens).</li>
+<li><strong>Multiple chats per user</strong> with automatic titles, switching, deletion and Markdown export.</li>
+<li><strong>Persistent history</strong> stored locally per user name.</li>
+<li><strong>Chat with a document:</strong> upload <code>.txt</code>, <code>.md</code>, <code>.csv</code>, <code>.json</code>, <code>.py</code> or <code>.pdf</code>. The text (up to 60,000 characters) is added to the model's context.</li>
+<li><strong>Optional password gate</strong> through the <code>APP_PASSWORD</code> environment variable.</li>
+<li><strong>Clear error messages</strong> when Ollama is not running or has no models.</li>
+</ul>
+<hr>
+<h2>4. Requirements</h2>
+<p><strong>Software</strong></p>
+<ul>
+<li>Python 3.9 or newer</li>
+<li>Ollama installed on the server</li>
+<li>Python packages: <code>streamlit</code>, <code>requests</code>, and optionally <code>pypdf</code> for PDF uploads</li>
+</ul>
+<p><strong>Hardware (approximate guide)</strong></p>
+<table>
+<thead>
+<tr>
+<th>Model size</th>
+<th>Memory needed (4-bit quantized)</th>
+<th>Typical use</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1B to 3B</td>
+<td>2 to 4 GB</td>
+<td>Fast, light drafting and Q&amp;A</td>
+</tr>
+<tr>
+<td>7B to 8B</td>
+<td>5 to 8 GB</td>
+<td>Good general assistant</td>
+</tr>
+<tr>
+<td>13B to 14B</td>
+<td>9 to 12 GB</td>
+<td>Stronger reasoning and writing</td>
+</tr>
+<tr>
+<td>30B to 70B</td>
+<td>20 to 48 GB</td>
+<td>Highest quality, needs a large GPU or lots of RAM</td>
+</tr>
+</tbody>
+</table>
+<p>A GPU with enough VRAM gives much faster replies than CPU only. More concurrent users means slower responses, so size the machine for peak use.</p>
+<hr>
+<h2>5. Installation</h2>
+<h3>5.1 With internet (simple)</h3>
+<pre><code class="language-bash">pip install streamlit requests pypdf
+ollama pull llama3.1
+streamlit run app.py
+</code></pre>
+<h3>5.2 Fully offline (air-gapped server)</h3>
+<p>On a machine <strong>with</strong> internet:</p>
+<pre><code class="language-bash">pip download streamlit requests pypdf -d wheels
+ollama pull llama3.1
+</code></pre>
+<p>Copy to the offline server: the <code>wheels/</code> folder, <code>app.py</code>, the Ollama installer, and the Ollama models folder (<code>~/.ollama/models</code> on Linux and macOS, <code>%USERPROFILE%\.ollama\models</code> on Windows).</p>
+<p>On the offline server:</p>
+<pre><code class="language-bash">pip install --no-index --find-links wheels streamlit requests pypdf
+ollama serve
+streamlit run app.py
+</code></pre>
+<h3>5.3 Turn off Streamlit telemetry</h3>
+<p>Create <code>.streamlit/config.toml</code>:</p>
+<pre><code class="language-toml">[browser]
+gatherUsageStats = false
+</code></pre>
+<hr>
+<h2>6. Configuration</h2>
+<p>All options are environment variables, set before launching.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OLLAMA_HOST</code></td>
+<td><code>http://localhost:11434</code></td>
+<td>Where the Ollama server is</td>
+</tr>
+<tr>
+<td><code>APP_PASSWORD</code></td>
+<td>empty (no login)</td>
+<td>Require a shared password</td>
+</tr>
+<tr>
+<td><code>CHAT_HISTORY_DIR</code></td>
+<td><code>./chat_history</code></td>
+<td>Where chats are saved</td>
+</tr>
+<tr>
+<td><code>APP_TITLE</code></td>
+<td><code>Local GPT</code></td>
+<td>Name shown in the interface</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example (Linux/macOS):</strong></p>
+<pre><code class="language-bash">export APP_PASSWORD=&#34;choose-a-strong-password&#34;
+export APP_TITLE=&#34;Org Assistant&#34;
+streamlit run app.py --server.address 0.0.0.0 --server.port 8501
+</code></pre>
+<hr>
+<h2>7. Usage</h2>
+<ol>
+<li>Open <code>http://&lt;server-ip&gt;:8501</code>.</li>
+<li>Enter your name in the sidebar. This keeps your chats separate from others.</li>
+<li>Choose a model.</li>
+<li>Type a message and press Enter.</li>
+<li>Use <strong>New chat</strong> to start a topic, the chat list to switch, <strong>Export</strong> to download a chat, and <strong>Delete</strong> to remove one.</li>
+<li>To ask about a file, open <strong>Chat with a document</strong> and upload it. Use <strong>Remove document</strong> when finished.</li>
+</ol>
+<p><strong>Tips</strong></p>
+<ul>
+<li>Keep the system prompt short and specific.</li>
+<li>Lower temperature (0.2 to 0.4) for factual work, higher (0.8 to 1.0) for creative writing.</li>
+<li>Raise the context window only if you need long documents. It uses more memory.</li>
+</ul>
+<hr>
+<h2>8. Security and Privacy</h2>
+<ul>
+<li><strong>The name field is not authentication.</strong> It only separates chat history. For real access control use <code>APP_PASSWORD</code>, or place the app behind a reverse proxy with SSO or LDAP.</li>
+<li><strong>Chat history is plain text</strong> on the server. Restrict access to <code>chat_history/</code> and include it in backups if needed.</li>
+<li><strong>Use HTTPS inside the LAN</strong> if passwords or sensitive content cross shared networks. A reverse proxy such as Nginx or Caddy can provide this.</li>
+<li><strong>Do not expose the app or port 11434 to the internet.</strong> Ollama has no built-in login.</li>
+<li>Models can produce incorrect or fabricated answers. Staff should verify important output.</li>
+</ul>
+<hr>
+<h2>9. Running as a Service (Linux example)</h2>
+<pre><code class="language-ini"># /etc/systemd/system/localgpt.service
+[Unit]
+Description=Local GPT (Streamlit)
+After=network.target ollama.service
+
+[Service]
+WorkingDirectory=/opt/localgpt
+Environment=APP_PASSWORD=change-me
+ExecStart=/usr/bin/python3 -m streamlit run app.py --server.address 0.0.0.0 --server.port 8501 --server.headless true
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+</code></pre>
+<p>Enable with <code>sudo systemctl enable --now localgpt</code>.</p>
+<hr>
+<h2>10. Troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Problem</th>
+<th>Likely cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>&quot;Cannot reach Ollama&quot;</td>
+<td>Ollama is not running. Start it with <code>ollama serve</code>, or check <code>OLLAMA_HOST</code>.</td>
+</tr>
+<tr>
+<td>Model list is empty</td>
+<td>No models installed. Run <code>ollama pull &lt;model&gt;</code> (or copy the models folder).</td>
+</tr>
+<tr>
+<td>Very slow replies</td>
+<td>Model too large for the hardware, or running on CPU. Use a smaller model or add a GPU.</td>
+</tr>
+<tr>
+<td>Out of memory errors</td>
+<td>Lower the context window or choose a smaller model.</td>
+</tr>
+<tr>
+<td>PDF upload fails</td>
+<td>Install <code>pypdf</code>. Scanned PDFs without a text layer cannot be read.</td>
+</tr>
+<tr>
+<td>Others cannot connect</td>
+<td>Start with <code>--server.address 0.0.0.0</code> and open the firewall for port 8501.</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2>11. Possible Next Steps</h2>
+<ul>
+<li>Retrieval over a shared folder of internal documents (RAG) with a local vector store.</li>
+<li>Single sign-on or LDAP login with per-user roles.</li>
+<li>Admin page for usage logs, model management and system prompt presets.</li>
+<li>Optional response feedback buttons to help choose the best model for each task.</li>
+</ul>
+
+</body></html>
